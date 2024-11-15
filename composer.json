@@ -1,0 +1,27 @@
+{
+    "name": "concept-labs/path-access",
+    "description": "(C)oncept-Labs Path Access",
+    "keywords": ["php","context"],
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "Mtr",
+            "email": "info.concept.labs@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.2|^7.4|^8.0|^8.2|^8.3|^8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Concept\\PathAccess\\": "src/"
+        }
+    },
+    "require-dev": {
+    },
+    "autoload-dev": {
+        "psr-4": {
+        }
+    }
+
+}
