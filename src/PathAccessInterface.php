@@ -1,4 +1,15 @@
 <?php
+/**
+ * PathAccessInterface
+ *
+ * This interface defines the contract for accessing and manipulating paths within the application.
+ *
+ * @package     Concept\PathAccess
+ * @subpackage  Data container
+ * @author      Victor Galitsky (mtr) concept.galitsky@gmail.com
+ * @license     https://opensource.org/licenses/Apache-2.0 Apache License, Version 2.0
+ * @link        https://github.com/concept-labs/di 
+ */
 namespace Concept\PathAccess;
 
 use IteratorAggregate;
