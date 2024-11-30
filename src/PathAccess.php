@@ -2,16 +2,22 @@
 namespace Concept\PathAccess;
 
 use ArrayIterator;
+use Concept\PathAccess\Exception\ReferenceException;
 use Traversable;
 
 class PathAccess implements PathAccessInterface
 {
+
+    private string $pathsSeparator = '.';
+
      /**
      * Storage
      *
      * @var array
      */
     protected array $data = [];
+
+    private array $createdFromPath = [];
 
     /**
      * States backup stack.
@@ -31,14 +37,28 @@ class PathAccess implements PathAccessInterface
     }
 
     /**
-     * The constructor
-     *
-     * @param array $config
+     * 
      */
-    public function __construct()
+    public function __construct(/*ProviderFactoryInterface $providerFactory*/)
     {
+        //$this->providerFactory = $providerFactory;
+
         $this->init();
     }
+
+    public function __clone()
+    {
+        $this->state = [];
+    }
+
+    // public function withDataProvider(DataProviderInterface $provider): self
+    // {
+    //     $clone = clone $this;
+    //     $clone->provider = $provider;
+
+    //     return $clone;
+    // }
+        
 
     /**
      * Initialize the config
@@ -63,9 +83,9 @@ class PathAccess implements PathAccessInterface
     /**
      * {@inheritDoc}
      */
-    public function setData(?array $data = null): self
+    public function setData(array $data): self
     {
-        $this->data = $data ?? [];
+        $this->data = $data;
 
         return $this;
     }
@@ -73,13 +93,31 @@ class PathAccess implements PathAccessInterface
     /**
      * {@inheritDoc}
      */
-    public function withData(?array $data = null): self
+    public function setPathSeparator(string $separator): self
     {
-        $config = clone $this;
-        $config->reset();
-        $config->setData($data ?? []);
+        $this->pathsSeparator = $separator;
 
-        return $config;
+        return $this;
+    }
+
+    /**
+     * Get the path separator
+     */
+    protected function getPathSeparator(): string
+    {
+        return $this->pathsSeparator;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function withData(array $data): self
+    {
+        $clone = clone $this;
+        $clone->reset();
+        $clone->setData($data);
+
+        return $clone;
     }
 
     /**
@@ -95,9 +133,25 @@ class PathAccess implements PathAccessInterface
      */
     public function from(string ...$paths): self
     {
-        return $this->withData(
+        $data = $this->get(...$paths);
+        if (!is_array($data)) {
+            throw new \InvalidArgumentException('Data must be an array. Given Path: ' . $this->createPath(...$paths));
+        }
+        $fromConfig = $this->withData(
             $this->get(...$paths)
         );
+
+        $fromConfig->createdFromPath = $paths;
+
+        return $fromConfig;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getCreatedFromPath(): array
+    {
+        return $this->createdFromPath;
     }
 
     /**
@@ -116,6 +170,46 @@ class PathAccess implements PathAccessInterface
                 if (!is_array($reference) || !key_exists($key, $reference)) {
                     return null;
                 }
+
+                if (is_string($reference[$key]) && strpos($reference[$key], '@') === 0) {
+                    //@debug
+                    $value = $this->resolveReference($reference[$key]);
+                    if (empty($value)) {
+                        throw new ReferenceException(sprintf('Reference "%s" not found', $reference[$key]));
+                    }
+                    $reference[$key] = $value;
+                    //
+                }
+
+                return $reference[$key];
+            },
+            $this->data
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function has(string ...$paths): bool
+    {
+        return null !== $this->_has(...$paths);
+    }
+
+    /**
+     * Keeping the original method for check if the value of node exists without resolving references
+     * If logic of get() method will be changed, this method should be updated too
+     */
+    protected function _has(string ...$paths)
+    {
+        $path = $this->createPath(...$paths);
+
+        return array_reduce(// Lookup by the path
+            $this->splitPath($path), 
+            function ($reference, $key) {
+                if (!is_array($reference) || !key_exists($key, $reference)) {
+                    return null;
+                }
+
                 return $reference[$key];
             },
             $this->data
@@ -168,45 +262,48 @@ class PathAccess implements PathAccessInterface
     /**
      * {@inheritDoc}
      */
-    public function has(string ...$paths): bool
-    {
-        return null !== $this->get(...$paths);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     public function asArray(): array
     {
-        return $this->get('');
+        return $this->data;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function asJson(): string
+    public function asJson(int $flags = 0): string
     {
-        return json_encode($this->asArray(), JSON_PRETTY_PRINT);
+        return json_encode($this->asArray(), $flags);
     }
 
      /**
      * {@inheritDoc}
      */
-    public function merge(array $data): self
+    public function merge($data): self
     {
+        if (!is_array($data) && !($data instanceof PathAccessInterface)) {
+            throw new \InvalidArgumentException('Data must be an array or an instance of ' . self::class);
+        }
+
+        if ($data instanceof PathAccessInterface) {
+            $data = $data->asArray();
+        }
+
         $this->data = array_replace_recursive($this->data, $data);
+        
 
         return $this;
     }
 
     /**
-     * @deprecated
      * {@inheritDoc}
      */
-    public function mergeFrom(array $values):void
+    public function mergeTo(string $path, array $data): self
     {
-        $this->data = $this->merge($values);
+        $this->set($path, array_replace_recursive($this->get($path) ?? [], $data));
+
+        return $this;
     }
+    
 
     /**
      * {@inheritDoc}
@@ -229,6 +326,20 @@ class PathAccess implements PathAccessInterface
 
         return $this;
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function resetState(): self
+    {
+        while (null !== $state = array_pop($this->state)) {
+            $this->data = $state;
+        }
+
+        return $this;
+    }
+
+   
     
     /**
      * Split the path string by a separator. Default is @see const PATH_DEFAULT_SEPARATOR
@@ -258,7 +369,7 @@ class PathAccess implements PathAccessInterface
      */
     public function createPath(string ...$paths): string
     {
-        return implode(self::PATH_SEPARATOR, $paths);
+        return implode($this->getPathSeparator(), $paths);
     }
 
     /**
@@ -278,7 +389,49 @@ class PathAccess implements PathAccessInterface
     {
         return sprintf(
             '/%s(?=(?:[^"]*"[^"]*")*(?![^"]*"))/',
-            preg_quote(static::PATH_SEPARATOR)
+            preg_quote($this->getPathSeparator())
         );
     }
+
+
+    /**
+     * Resolve a reference
+     * 
+     * @param array $reference
+     * @param string $value
+     * 
+     * @return mixed
+     */
+    protected function resolveReference(string $value)
+    {
+        $protocol = substr($value, 1, strpos($value, '://') - 1);
+        $providerString = substr($value, strpos($value, '://') + 3);
+
+        if ($protocol === 'path') {
+            return $this->get($providerString);
+        }
+
+        throw new \RuntimeException(sprintf('Unsupported reference protocol: %s', $protocol));
+
+        // $provider = preg_replace('#^@([0-9a-zA-Z-_)+:#', '', $value);
+        // $providerString = preg_replace('#^@([0-9a-zA-Z-_)+:#', '', $value);
+        // $data = $this->getProvider($provider)->load($providerString);
+
+        // return $data;
+    }
+
+    // protected function getProvider(string $providerId): DataProviderInterface
+    // {
+    //     return $this->getProviderFactory()->create($providerId);
+    // }
+
+    // /**
+    //  * Get the provider factory
+    //  * 
+    //  * @return ProviderFactoryInterface
+    //  */
+    // protected function getProviderFactory(): ProviderFactoryInterface
+    // {
+    //     return $this->providerFactory;
+    // }
 }

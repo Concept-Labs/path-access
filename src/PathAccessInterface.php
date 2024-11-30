@@ -5,10 +5,15 @@ use IteratorAggregate;
 
 interface PathAccessInterface extends IteratorAggregate
 {
+
     /**
-     * The path separatog. e.g. "key.subkey.subsubkey"
+     * Set the path separator
+     *
+     * @param string $separator The separator
+     * 
+     * @return self
      */
-    const PATH_SEPARATOR = '.';
+    public function setPathSeparator(string $separator): self;
 
     /**
      * Check if the data has value by path
@@ -49,30 +54,40 @@ interface PathAccessInterface extends IteratorAggregate
     /**
      * Set the data
      *
-     * @param array|null $data The data
+     * @param array $data The data
      * 
      * @return self
      */
-    public function setData(?array $data = null): self;
+    public function setData(array $data): self;
 
 
     /**
      * Get self instance with new data
      *
-     * @param array|null $data The data @see setData()
+     * @param array $data The data @see setData()
      * 
      * @return self
      */
-    public function withData(?array $data = null): self;
+    public function withData(array $data): self;
 
     /**
      * Merge into the data from a values
      *
+     * @param array|PathAccessInterface $values The array for merge from
+     * 
+     * @return self
+     */
+    public function merge($data): self;
+
+    /**
+     * Merge into the data from a values by path
+     *
+     * @param string $path The path
      * @param array $values The array for merge from
      * 
-     * @return void
+     * @return self
      */
-    public function merge(array $data): self;
+    public function mergeTo(string $path, array $data): self;
     
     /**
      * Get cloned instance with data taken by path
@@ -83,6 +98,18 @@ interface PathAccessInterface extends IteratorAggregate
      */
     //public function fromPath(string ...$paths);
     public function from(string ...$paths): self;
+
+    /**
+     * Get the path to the node from which the current config was created
+     * Note: The path is relative to the root of the original config
+     * 
+     * @param string ...$paths
+     * 
+     * @return array
+     */
+    public function getCreatedFromPath(): array;
+
+
     /**
      * @deprecated
      * Get the path to the  node
@@ -93,7 +120,6 @@ interface PathAccessInterface extends IteratorAggregate
      */
     public function fromPath(string ...$paths): self;
 
-    
 
     /**
      * Get the path to the  node
@@ -119,6 +145,13 @@ interface PathAccessInterface extends IteratorAggregate
     public function popState(): self;
 
     /**
+     * Restore the initial state
+     *
+     * @return void
+     */
+    public function resetState(): self;
+
+    /**
      * Get the all data
      * 
      * @return array
@@ -130,7 +163,7 @@ interface PathAccessInterface extends IteratorAggregate
      * 
      * @return string
      */
-    public function asJson(): string;
+    public function asJson(int $flags = 0): string;
 
     /**
      * Reset the state of self instance

@@ -1,0 +1,13 @@
+{
+    "di": {
+        "package": {
+            "concept-labs/path-access": {
+                "preference": {
+                    "Concept\\PathAccess\\PathAccessInterface": {
+                        "class": "Concept\\PathAccess\\PathAccess"
+                    }
+                }
+            }
+        }
+    }
+}
