@@ -8,7 +8,7 @@
  * @subpackage  Data container
  * @author      Victor Galitsky (mtr) concept.galitsky@gmail.com
  * @license     https://opensource.org/licenses/Apache-2.0 Apache License, Version 2.0
- * @link        https://github.com/concept-labs/di 
+ * @link        https://github.com/concept-labs/path-access 
  */
 namespace Concept\PathAccess;
 
@@ -40,6 +40,7 @@ interface PathAccessInterface extends IteratorAggregate
 
     /**
      * Get the value by path
+     * @see has()
      * 
      * @return mixed
      */
@@ -48,6 +49,7 @@ interface PathAccessInterface extends IteratorAggregate
     /**
      * @param string $paths
      * @param mixed $value
+     * @see has()
      * 
      * @return self
      */
@@ -108,7 +110,7 @@ interface PathAccessInterface extends IteratorAggregate
      * @return self
      */
     //public function fromPath(string ...$paths);
-    public function from(string ...$paths): self;
+    public function from(string ...$paths): ?self;
 
     /**
      * Get the path to the node from which the current config was created
@@ -129,7 +131,7 @@ interface PathAccessInterface extends IteratorAggregate
      * 
      * @return self
      */
-    public function fromPath(string ...$paths): self;
+    public function fromPath(string ...$paths): ?self;
 
 
     /**

@@ -6,7 +6,7 @@
  * @subpackage  Data container
  * @author      Victor Galitsky (mtr) concept.galitsky@gmail.com
  * @license     https://opensource.org/licenses/Apache-2.0 Apache License, Version 2.0
- * @link        https://github.com/concept-labs/di 
+ * @link        https://github.com/concept-labs/path-access 
  */
 namespace Concept\PathAccess;
 
@@ -132,7 +132,7 @@ class PathAccess implements PathAccessInterface
     /**
      * {@inheritDoc}
      */
-    public function fromPath(string ...$paths): self
+    public function fromPath(string ...$paths): ?self
     {
         return $this->from(...$paths);
     }
@@ -140,10 +140,11 @@ class PathAccess implements PathAccessInterface
     /**
      * {@inheritDoc}
      */
-    public function from(string ...$paths): self
+    public function from(string ...$paths): ?self
     {
         $data = $this->get(...$paths);
         if (!is_array($data)) {
+            return null;
             throw new \InvalidArgumentException('Data must be an array. Given Path: ' . $this->createPath(...$paths));
         }
         $fromConfig = $this->withData(
@@ -168,61 +169,57 @@ class PathAccess implements PathAccessInterface
      */
     public function get(string ...$paths)
     {
-        /**
-         * Each parameter can be part of path so join them together
-         */
         $path = $this->createPath(...$paths);
 
-        return array_reduce(// Lookup by the path
-            $this->splitPath($path), 
-            function ($reference, $key) {
-                if (!is_array($reference) || !key_exists($key, $reference)) {
-                    return null;
-                }
+        $reference = $this->data;
 
-                if (is_string($reference[$key]) && strpos($reference[$key], '@') === 0) {
-                    //@debug
-                    $value = $this->resolveReference($reference[$key]);
-                    if (empty($value)) {
-                        throw new ReferenceException(sprintf('Reference "%s" not found', $reference[$key]));
-                    }
-                    $reference[$key] = $value;
-                    //
-                }
+        foreach ($this->splitPath($path) as $key) {
+            if (!is_array($reference) || !array_key_exists($key, $reference)) {
+                return null; 
+            }
 
-                return $reference[$key];
-            },
-            $this->data
-        );
+            if (is_string($reference[$key]) && strpos($reference[$key], '@') === 0) {
+                $resolved = $this->resolveReference($reference[$key]);
+                if (empty($resolved)) {
+                    throw new ReferenceException(sprintf('Reference "%s" not resolved', $reference[$key]));
+                }
+                $reference[$key] = $resolved; 
+            }
+
+            $reference = $reference[$key]; 
+        }
+
+        return $reference;
     }
+
 
     /**
      * {@inheritDoc}
      */
     public function has(string ...$paths): bool
     {
-        return null !== $this->_has(...$paths);
+        return $this->_has(...$paths);
     }
 
     /**
      * Keeping the original method for check if the value of node exists without resolving references
      * If logic of get() method will be changed, this method should be updated too
      */
-    protected function _has(string ...$paths)
+    protected function _has(string ...$paths): bool
     {
         $path = $this->createPath(...$paths);
 
-        return array_reduce(// Lookup by the path
-            $this->splitPath($path), 
-            function ($reference, $key) {
-                if (!is_array($reference) || !key_exists($key, $reference)) {
-                    return null;
-                }
+        $reference = $this->data;
 
-                return $reference[$key];
-            },
-            $this->data
-        );
+        foreach ($this->splitPath($path) as $key) {
+            if (!is_array($reference) || !array_key_exists($key, $reference)) {
+                return false; 
+            }
+
+            $reference = $reference[$key];
+        }
+
+        return true;
     }
 
     /**
